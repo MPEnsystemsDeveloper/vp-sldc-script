@@ -1,48 +1,72 @@
+# This is the complete and corrected GitHub Actions workflow file.
+# Path: .github/workflows/main.yml
+
 name: Scrape Vidyutpravah Every 15 Minutes
 
 on:
+  # Runs automatically every 15 minutes.
   schedule:
     - cron: "*/15 * * * *"
+  
+  # Allows you to run this workflow manually from the Actions tab on GitHub.
   workflow_dispatch:
 
 jobs:
   scrape-and-commit:
+    # Use the latest version of Ubuntu as the operating system for the runner.
     runs-on: ubuntu-latest
 
+    # Grant the workflow permissions to write to the repository's contents.
+    # This is critical for the 'git push' step to succeed.
     permissions:
       contents: write
 
     steps:
+      # Step 1: Check out the repository's code so the runner can access it.
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Set up the Python environment.
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
+      # Step 3: Install the required Python libraries.
+      # This now includes 'cloudscraper' to handle anti-bot protection.
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+          pip install requests beautifulsoup4 cloudscraper
 
+      # Step 4: Run the Python scraper script.
+      # This script should now succeed and create files in the 'data/' directory.
       - name: Run Python scraper
         run: python vpscript.py
 
-      # --- NEW DEBUGGING STEP ---
-      # This step will show you exactly what files were created by the script.
-      - name: Verify file structure
-        run: ls -R
-
+      # Step 5: Commit the newly created data files back to the repository.
       - name: Commit and push data files
         run: |
+          # Configure Git with the bot's identity.
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # IMPORTANT: Pull the latest changes from the remote repository first.
+          # This prevents the "failed to push some refs" error.
+          git pull
+          
+          # Stage the 'data' directory. This includes both the timestamped
+          # file and the 'latest.json' file.
           git add data/
-          # Using 'git diff' to only commit if there are changes
+          
+          # Check if there are any staged changes. If there are, commit and push.
+          # If not, print a message and exit gracefully.
           if git diff --staged --quiet; then
-            echo "No changes to commit."
+            echo "No new data to commit. The working tree is clean."
           else
+            echo "New data found. Committing and pushing to the repository."
+            # Commit the changes with a dynamic message including the current date.
             git commit -m "Auto-update power data from $(date -u)"
+            # Push the changes to the 'main' branch.
             git push
           fi
