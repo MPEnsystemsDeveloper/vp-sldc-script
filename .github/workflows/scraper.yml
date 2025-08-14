@@ -2,35 +2,31 @@ name: Scrape Vidyutpravah Every 15 Minutes
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # Every 15 min UTC
-  workflow_dispatch:
+    # Runs every 15 minutes (UTC) — convert to IST by adding +5:30
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # allow manual run
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repo
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
 
-      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # Step 3: Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
-      # Step 4: Run your script
-      - name: Run scraper script
-        run: python vpscript.py  # change this to your actual script name
+      - name: Run scraper
+        run: python scraper.py
 
-      # Step 5: Commit & push changes (JSON)
       - name: Commit and push changes
         run: |
           git config --local user.name "github-actions[bot]"
