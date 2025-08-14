@@ -2,17 +2,21 @@ name: Scrape Vidyutpravah Every 15 Minutes
 
 on:
   schedule:
-    # Runs every 15 minutes (UTC) — convert to IST by adding +5:30
+    # Runs every 15 minutes (UTC).
     - cron: "*/15 * * * *"
-  workflow_dispatch: # allow manual run
+  workflow_dispatch: # Allows you to run this workflow manually from the Actions tab
 
 jobs:
-  scrape:
+  scrape-and-commit:
     runs-on: ubuntu-latest
 
+    permissions:
+      # Grant the workflow permissions to write to the repository.
+      contents: write
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -24,13 +28,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
-      - name: Run scraper
+      - name: Run Python scraper
+        # This will create the 'data/' directory with new JSON files.
         run: python vpscript.py
 
-      - name: Commit and push changes
+      - name: Commit and push data files
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Auto-update JSON data" || echo "No changes to commit"
+          
+          # Add the data directory. This will stage the timestamped file and the latest.json file.
+          git add data/
+          
+          # Check if there are any changes to commit to avoid empty commits.
+          # The '|| exit 0' part prevents the script from failing if there's nothing to commit.
+          git diff-index --quiet HEAD || git commit -m "Auto-update power data"
+          
+          # Push the changes. It will only push if a commit was made.
           git push
