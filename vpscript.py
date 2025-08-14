@@ -11,7 +11,6 @@ from datetime import datetime, date
 PROXY_URL = os.getenv('PROXY_URL')
 
 # --- 2. Create the proxies dictionary if the URL exists ---
-# This dictionary will be used by cloudscraper to route requests.
 PROXIES = None
 if PROXY_URL:
     print("Proxy URL found. Configuring scraper to use proxy.")
@@ -20,6 +19,7 @@ if PROXY_URL:
         "https": PROXY_URL,
     }
 else:
+    # This is the message you saw in the log, it is expected if no proxy is set.
     print("No Proxy URL found. Running without proxy.")
 
 
@@ -45,12 +45,11 @@ def scrape_state_data(scraper, url, state_name):
     """Fetches and extracts data from a single state's webpage using the provided scraper."""
     print(f"Fetching data for {state_name} from {url}...")
     try:
-        # The scraper object will automatically use the proxies it was configured with.
+        # The scraper object will automatically use the proxies assigned to it.
         response = scraper.get(url, timeout=45) 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Logic for finding data remains the same.
         time_block_tag = soup.find('b')
         time_block = time_block_tag.get_text(strip=True) if time_block_tag else None
         
@@ -91,13 +90,17 @@ def main_scraper():
     newly_scraped_data = []
     today_str = date.today().strftime("%d-%m-%Y")
     
-    # --- 3. Initialize the scraper with the proxy configuration ---
-    # The 'proxies' argument will be either the proxy dictionary or None.
+    # --- THIS IS THE CORRECTED CODE ---
+    # First, create the scraper object.
     scraper = cloudscraper.create_scraper(
-        browser={'custom': 'ScraperBot/1.0'}, # You can add a custom user-agent
-        delay=10, # Add a delay between requests to be polite
-        proxies=PROXIES
+        browser={'custom': 'ScraperBot/1.0'},
+        delay=10
     )
+
+    # Second, IF the PROXIES dictionary exists, assign it to the scraper's .proxies attribute.
+    if PROXIES:
+        scraper.proxies = PROXIES
+    # --- END OF CORRECTION ---
 
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -113,21 +116,12 @@ def main_scraper():
         scraped_info = scrape_state_data(scraper, full_url, state)
         if scraped_info:
             state_json_obj = { 
-                "urlScraped": full_url, 
-                "key": formatted_state, 
-                "key_name": "vidyutpravah", 
-                "time_block": scraped_info['time_block'], 
-                "date": today_str, 
-                "isManual": 1, 
-                f"parsed_{formatted_state}": { 
-                    "State's Demand Met": { 
-                        "YESTERDAY ": scraped_info['demand_met_yesterday'], 
-                        "CURRENT ": scraped_info['demand_met_current']
-                    }
-                }
-            }
+                "urlScraped": full_url, "key": formatted_state, "key_name": "vidyutpravah", 
+                "time_block": scraped_info['time_block'], "date": today_str, "isManual": 1, 
+                f"parsed_{formatted_state}": { "State's Demand Met": { 
+                        "YESTERDAY ": scraped_info['demand_met_yesterday'], "CURRENT ": scraped_info['demand_met_current']
+                    }}}
             newly_scraped_data.append(state_json_obj)
-        # A small sleep is still good practice, even with proxies.
         time.sleep(1) 
 
     if newly_scraped_data:
